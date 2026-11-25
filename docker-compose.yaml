@@ -1,0 +1,19 @@
+# Local Airflow 3 (standalone: API server, scheduler, DAG processor, triggerer) with Spark in local mode.
+#   docker compose up --build        then open http://localhost:8080
+# The admin password is printed in the logs and saved to ./airflow-home/simple_auth_manager_passwords.json.generated
+services:
+  airflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: standalone
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW_HOME: /opt/airflow
+      SPARK_DRIVER_MEMORY: 2g
+      # ALERT_WEBHOOK_URL: https://hooks.slack.com/services/...   # optional failure alerts
+    volumes:
+      - ./dags:/opt/ami/dags
+      - ./data:/opt/ami/data
+      - ./airflow-home:/opt/airflow

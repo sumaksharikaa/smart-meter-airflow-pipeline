@@ -1,0 +1,27 @@
+# Smart-meter pipeline settings. The data root can be overridden with AMI_DATA_ROOT.
+data_root: ./data
+
+regions: [BAY_AREA, CENTRAL_VALLEY, NORTH_COAST, SIERRA]
+
+files:
+  expected_header: [meter_id, interval_end, kwh, read_quality]
+
+vee:
+  intervals_per_day: 96
+  # A 15-minute read above this is physically implausible for the service type.
+  max_kwh_per_interval:
+    RESIDENTIAL: 15
+    COMMERCIAL: 150
+  # Gaps up to this many intervals (2 hours) are estimated by linear interpolation;
+  # longer gaps stay MISSING and are left for a field read or a like-day estimate.
+  max_estimation_gap: 8
+
+reliability:
+  # IEEE 1366: interruptions shorter than 5 minutes are momentary and excluded from SAIDI/SAIFI.
+  momentary_threshold_minutes: 5
+
+quality_gate:
+  # Share of expected intervals that must hold a usable value (actual, estimated or edited), per region.
+  min_region_completeness: 0.98
+  # Any rejected file blocks publishing for the day.
+  allow_rejected_files: false
