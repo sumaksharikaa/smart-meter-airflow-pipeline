@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  AIRFLOW_VERSION: "3.2.2"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Airflow with official constraints, plus the package
+        run: |
+          pip install "apache-airflow==${AIRFLOW_VERSION}" -e ".[dev]" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+
+      - name: Lint
+        run: ruff check . && ruff format --check .
+
+      - name: Unit + DAG integrity tests
+        run: pytest -q
+
+      - name: End-to-end DAG runs (dag.test)
+        run: python scripts/run_e2e.py --root /tmp/ami-e2e
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Airflow + Spark image
+        run: docker build -f docker/Dockerfile -t ami-airflow .
+      - name: DAGs import inside the image
+        run: |
+          docker run --rm ami-airflow python -c "
+          from airflow.dag_processing.dagbag import DagBag
+          b = DagBag(include_examples=False)
+          assert not b.import_errors, b.import_errors
+          print(sorted(b.dag_ids))"
